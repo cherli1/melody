@@ -1,0 +1,273 @@
+import doctest
+from note import Note
+
+
+class Melody:
+    ''' A class to represent a melody of many notes. 
+    
+    Instance attributes:
+    * title: str
+    * author: str
+    * notes: list
+    
+    '''
+    
+    def __init__(self, filename):
+        ''' (str) -> NoneType
+        Takes in a filename, opens the file,
+        creates instance attributes for title and author,
+        and notes, which is a list of Note objects,
+        one for every note in the file, including
+        repeated notes.
+        
+        >>> fur_elise = Melody("fur_elise.txt")
+        >>> fur_elise.author
+        'Ludwig van Beethoven'
+        
+        >>> hot_cross_buns = Melody("hotcrossbuns.txt")
+        >>> len(hot_cross_buns.notes)
+        17
+        
+        >>> hot_cross_buns = Melody("hotcrossbuns.txt")
+        >>> print(hot_cross_buns.notes[0])
+        0.5 B 4 natural
+        >>> print(hot_cross_buns.notes[3])
+        0.5 B 4 natural
+        
+        '''
+    
+        fobj = open(filename, "r")
+        
+        file_content = fobj.read()
+        lines = file_content.split("\n")
+        self.title = lines[0]
+        self.author = lines[1]
+        
+        # adding the repeated notes: 
+        
+        notes_list = []
+        
+        notes_index = 2
+        while notes_index < len(lines): 
+            if "true" in lines[notes_index]:
+                repeated_list = [lines[notes_index]]
+                while True:
+                    notes_index += 1
+                    repeated_list.append(lines[notes_index])
+                    
+                    if "true" in lines[notes_index]:
+                        repeated_list += repeated_list
+                        notes_index += 1
+                        
+                        for note in repeated_list:
+                            notes_list.append(note)
+
+                        break
+                    
+            else:
+                notes_list.append(lines[notes_index])
+                notes_index += 1
+        
+        fobj.close()
+        
+        # creating notes instance attribute: 
+        
+        self.notes = []
+        
+        for note in notes_list:
+            elmts = note.split()
+            duration = float(elmts[0])
+            
+            if elmts[1] == "R":
+                self.notes.append(Note(duration, "R"))
+            else:
+                octave = int(elmts[2])
+                accidental = elmts[3].lower()
+                
+                new_note = Note(duration, elmts[1], octave, accidental)
+                self.notes.append(new_note)
+                
+        
+    def play(self, player):
+        ''' (Player) -> NoneType
+        Takes a player object, calls the play method on each
+        Note object of the notes instance attribute.
+        
+        '''
+        
+        for note in self.notes:
+            note.play(player)
+    
+    
+    def get_total_duration(self):
+        ''' () -> float
+        Returns the total duration of the song as a float.
+        
+        >>> happy_birthday = Melody("birthday.txt")
+        >>> happy_birthday.get_total_duration()
+        13.0
+        
+        >>> tetris = Melody("tetris.txt")
+        >>> tetris.get_total_duration()
+        15.5
+        
+        >>> star = Melody("twinkle.txt")
+        >>> star.get_total_duration()
+        24.5
+        
+        '''
+        
+        total_duration = 0
+        
+        for note in self.notes:
+            total_duration += note.duration
+            
+        return total_duration
+
+    
+    def octave_change(self, change):
+        ''' (int) -> bool
+        Changes octaves of all notes by the change number,
+        ex. increasing all octaves by 1 if the change number was 1. 
+        
+        >>> happy_birthday = Melody("birthday.txt")
+        >>> happy_birthday.octave_change(-1)
+        True
+        >>> happy_birthday.notes[7].octave
+        3
+        
+        >>> happy_birthday = Melody("birthday.txt")
+        >>> happy_birthday.octave_change(1)
+        True
+        >>> happy_birthday.notes[7].octave
+        5
+        
+        >>> happy_birthday = Melody("birthday.txt")
+        >>> happy_birthday.octave_change(2)
+        True
+        >>> happy_birthday.notes[7].octave
+        6
+        
+        '''
+        
+        for note in self.notes:
+            note.octave += change
+        return True
+    
+    
+    def lower_octave(self):
+        ''' () -> bool
+        Reduces octaves of all notes by 1 and returns True,
+        if not possible, returns False.
+        
+        >>> happy_birthday = Melody("birthday.txt")
+        >>> happy_birthday.lower_octave()
+        True
+        >>> happy_birthday.notes[7].octave
+        3
+        
+        >>> weasel = Melody("weasel.txt")
+        >>> weasel.lower_octave()
+        True
+        >>> weasel.notes[6].octave
+        4
+        
+        >>> elise = Melody("fur_elise.txt")
+        >>> elise.lower_octave()
+        True
+        >>> elise.notes[5].octave
+        3
+        
+        '''
+        
+        if limited(self.notes, 1):
+            return False
+        else:
+            return self.octave_change(-1)
+        
+        
+    def upper_octave(self):
+        ''' () -> bool
+        Increases octaves of all notes by 1 and returns True,
+        if not possible, returns False.
+        
+        >>> happy_birthday = Melody("birthday.txt")
+        >>> happy_birthday.upper_octave()
+        True
+        >>> happy_birthday.notes[7].octave
+        5
+        
+        >>> weasel = Melody("weasel.txt")
+        >>> weasel.upper_octave()
+        True
+        >>> weasel.notes[6].octave
+        6
+        
+        >>> elise = Melody("fur_elise.txt")
+        >>> elise.upper_octave()
+        True
+        >>> elise.notes[5].octave
+        5
+        
+        '''
+        
+        if limited(self.notes, 7):
+            return False
+        else:
+            return self.octave_change(1)
+        
+    
+    def change_tempo(self, change):
+        ''' (float) -> NoneType
+        Takes in a positive float change number,
+        multiplies duration of each note by the given float.
+        
+        >>> happy_birthday = Melody("birthday.txt")
+        >>> happy_birthday.change_tempo(0.5)
+        >>> happy_birthday.get_total_duration()
+        6.5
+        
+        >>> twinkle = Melody("twinkle.txt")
+        >>> twinkle.change_tempo(4.0)
+        >>> twinkle.notes[0].duration
+        2.0
+        
+        >>> hot_cross_buns = Melody("hotcrossbuns.txt")
+        >>> hot_cross_buns.change_tempo(1.5)
+        >>> hot_cross_buns.notes[0].duration
+        0.75
+        
+        '''
+        
+        for note in self.notes:
+            note.duration *= change
+        
+
+def limited(notes, limit_num):
+    ''' (list, int) -> bool
+    Takes in the notes list and the limit of the octave,
+    ex. if there is a octave = 1 note in lower_octave,
+    returns True (past the limit).
+    
+    >>> happy_birthday = Melody("birthday.txt")
+    >>> limited(happy_birthday.notes, 1)
+    False
+    
+    >>> happy_birthday = Melody("birthday.txt")
+    >>> limited(happy_birthday.notes, 7)
+    False
+    
+    >>> happy_birthday = Melody("birthday.txt")
+    >>> limited(happy_birthday.notes, 4)
+    True
+    
+    '''
+    
+    for note in notes:
+        if note.pitch != "R" and note.octave == limit_num:
+            return True
+    return False
+
+
+if __name__ == "__main__":
+    doctest.testmod()
